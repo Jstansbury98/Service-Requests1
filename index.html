@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Request System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        /* Original styles */
+        h1, h2 {
+            color: #333;
+        }
+        
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f8f8f8;
+            font-weight: bold;
+        }
+        
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        /* Login overlay styles */
+        #loginOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        #loginForm {
+            background-color: white;
+            padding: 30px;
+            border-radius: 5px;
+            width: 300px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        #loginForm h2 {
+            margin-top: 0;
+            text-align: center;
+        }
+        
+        #loginError {
+            color: red;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        #appContent {
+            display: none; /* Hide app content initially */
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Overlay -->
+    <div id="loginOverlay">
+        <div id="loginForm">
+            <h2>Login</h2>
+            <div id="loginError">Invalid username or password</div>
+            
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            
+            <button type="button" onclick="authenticate()">Login</button>
+        </div>
+    </div>
+
+    <!-- Main Application Content (hidden initially) -->
+    <div id="appContent">
+        <h1>Submit New Request</h1>
+        
+        <form id="requestForm">
+            <div>
+                <label for="name">Your Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            
+            <div>
+                <label for="category">Category</label>
+                <select id="category" name="category">
+                    <option value="General">General</option>
+                    <option value="Payroll">Payroll</option>
+                    <option value="Benefits">Benefits</option>
+                    <option value="Recruiting">Recruiting</option>
+                    <option value="Onboarding">Onboarding</option>
+                    <option value="Training/Learning">Training/Learning</option>
+                    <option value="System Access">System Access</option>
+                    <option value="Reporting">Reporting</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            
+            <div>
+                <label for="title">Title</label>
+                <input type="text" id="title" name="title" required>
+            </div>
+            
+            <div>
+                <label for="description">Description</label>
+                <textarea id="description" name="description" rows="4" required></textarea>
+            </div>
+            
+            <div>
+                <label for="priority">Priority</label>
+                <select id="priority" name="priority">
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                </select>
+            </div>
+            
+            <div>
+                <label for="attachment">Attachment (link or filename, optional)</label>
+                <input type="text" id="attachment" name="attachment">
+            </div>
+            
+            <button type="submit">Submit Request</button>
+        </form>
+        
+        <h2>Work Requests</h2>
+        
+        <button id="exportCSV" style="margin-bottom: 10px;">Export CSV</button>
+        
+        <table id="requestsTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title / Category</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Requester</th>
+                    <th>Created</th>
+                    <th>Assigned</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table data will be populated dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Authentication function
+        function authenticate() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // Check against the specified credentials
+            if (username === 'Jason' && password === 'Test') {
+                // Hide login overlay and show app content on successful login
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('appContent').style.display = 'block';
+            } else {
+                // Show error message on failed login
+                document.getElementById('loginError').style.display = 'block';
+            }
+        }
+        
+        // Optional: Add listener for Enter key on login form
+        document.getElementById('password').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                authenticate();
+            }
+        });
+        
+        // Rest of your existing JavaScript (if any) would go here
+        
+        // Sample code to handle form submission
+        document.getElementById('requestForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            // Form submission logic would go here
+            // This would typically involve sending data to a server
+            alert('Request submitted!');
+            
+            // Clear form
+            this.reset();
+        });
+        
+        // Sample code for CSV export functionality
+        document.getElementById('exportCSV').addEventListener('click', function() {
+            // CSV export logic would go here
+            alert('Exporting to CSV...');
+        });
+    </script>
+</body>
+</html>
