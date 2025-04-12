@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Work Request Portal (Lite)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial,sans-serif; margin:0; background:#f6fafd; }
+    header { background:#013963; color:#fff; padding:1em 2em; }
+    header h1 { margin:0; }
+    .container { max-width:700px; margin:2em auto; background:#fff; border-radius:8px; box-shadow:0 0 12px #eee; padding:2em; }
+    h2 { color:#0069d9; margin-top:0; }
+    form { margin-bottom:2em; }
+    label { display:block; font-weight:bold; margin:1em 0 0.5em; }
+    input, textarea, select { width:100%; padding:0.7em; margin-bottom:0.8em; border-radius:5px; border:1px solid #bbb; }
+    button { background:#0069d9; color:#fff; border:none; border-radius:5px; padding:0.7em 1.5em; font-size:1em; cursor:pointer; }
+    button:hover { background:#0053a3; }
+    table { width:100%; border-collapse:collapse; margin-top:1em; }
+    th, td { padding:0.7em; border-bottom:1px solid #e7e7e7; }
+    th { background:#013963; color:#fff; }
+    tr:hover {background:#f1f7ff;}
+    .badge { padding:2px 8px; border-radius:12px; font-size:0.9em; }
+    .pending { background:#ffea91; color:#856a00; }
+    .inprogress { background:#bfecff; color:#0081a6;}
+    .completed { background:#c7fdb8; color:#287501; }
+    footer { text-align:center; color:#999; padding:1em; margin-top:2em; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Work Requests Portal (Lite)</h1>
+  </header>
+  <div class="container">
+    <h2>Submit New Request</h2>
+    <form id="requestForm">
+      <label for="reqTitle">Title</label>
+      <input type="text" id="reqTitle" required>
+      <label for="reqDesc">Description</label>
+      <textarea id="reqDesc" rows="2" required></textarea>
+      <label for="reqPriority">Priority</label>
+      <select id="reqPriority">
+        <option>Medium</option>
+        <option>Low</option>
+        <option>High</option>
+      </select>
+      <button type="submit">Submit Request</button>
+    </form>
+    <h2>All Work Requests</h2>
+    <table id="requestsTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Requests appear here -->
+      </tbody>
+    </table>
+  </div>
+  <footer>
+    &copy; 2024 Simple Work Request Portal (Inspired by ServiceNow’s user flow; not affiliated)
+  </footer>
+  <script>
+    let requests = JSON.parse(localStorage.getItem('requests') || '[]');
+    let nextId = requests.length ? Math.max(...requests.map(r => r.id))+1 : 1;
+
+    function renderRequests() {
+      const tbody = document.querySelector('#requestsTable tbody');
+      tbody.innerHTML = '';
+      for (const req of requests) {
+        let statusClass, statusTxt;
+        switch (req.status) {
+          case 'Pending': statusClass = 'pending'; statusTxt = 'Pending'; break;
+          case 'In Progress': statusClass = 'inprogress'; statusTxt = 'In Progress'; break;
+          case 'Completed': statusClass = 'completed'; statusTxt = 'Completed'; break;
+          default: statusClass = ''; statusTxt = req.status;
+        }
+        tbody.innerHTML += `
+        <tr>
+          <td>${req.id}</td>
+          <td title="${req.description}">${req.title}</td>
+          <td><span class="badge ${statusClass}">${statusTxt}</span></td>
+          <td>${req.priority}</td>
+          <td>
+            ${req.status !== 'Completed' ? `
+              <button onclick="updateStatus(${req.id}, 'In Progress')">Start</button>
+              <button onclick="updateStatus(${req.id}, 'Completed')">Complete</button>
+            ` : ''}
+            <button onclick="deleteReq(${req.id})">Delete</button>
+          </td>
+        </tr>`;
+      }
+    }
+
+    document.getElementById('requestForm').onsubmit = function(e){
+      e.preventDefault();
+      let req = {
+        id: nextId++,
+        title: reqTitle.value,
+        description: reqDesc.value,
+        status: 'Pending',
+        priority: reqPriority.value
+      }
+      requests.push(req);
+      localStorage.setItem('requests', JSON.stringify(requests));
+      renderRequests();
+      this.reset();
+    };
+
+    function updateStatus(id, status){
+      for(let r of requests) if(r.id===id) r.status=status;
+      localStorage.setItem('requests', JSON.stringify(requests));
+      renderRequests();
+    }
+    function deleteReq(id){
+      if(confirm('Delete this request?')){
+        requests = requests.filter(r=>r.id!==id);
+        localStorage.setItem('requests', JSON.stringify(requests));
+        renderRequests();
+      }
+    }
+    // make functions global for inline onclick
+    window.updateStatus = updateStatus;
+    window.deleteReq = deleteReq;
+
+    renderRequests();
+  </script>
+</body>
+</html>
