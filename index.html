@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Work Request Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    /* Existing Styles ... */
+    body { font-family: Segoe UI, Arial, sans-serif; margin:0; background:#f6fafd; }
+    header { background:#013963; color:#fff; padding:1em 2em; }
+    header h1 { margin:0; }
+    .role-switch { float:right; margin-top:-2.7em; }
+    .container { max-width:1080px; margin:2em auto; background:#fff; border-radius:8px; box-shadow:0 0 16px #ebebeb; padding:2em; }
+    h2 { color:#0069d9; margin-top:0.1em; }
+    form { margin-bottom:2em; }
+    label { display:block; font-weight:bold; margin:1em 0 0.5em; }
+    input[type="text"], input[type="password"], textarea, select { width:100%; padding:0.7em; margin-bottom:0.8em; border-radius:5px; border:1px solid #bbb; }
+    .split-row { display:grid; grid-template-columns:1fr 1fr; gap:1em; }
+    button, .fake-link { background:#0069d9; color:#fff; border:none; border-radius:5px; padding:0.7em 1.5em; font-size:1em; cursor:pointer; }
+    .actions button, .actions .fake-link {padding:0.4em 1em; font-size:0.95em; }
+    button:hover, .fake-link:hover { background:#0053a3; }
+    .fake-link {background:none; color:#0069d9; text-decoration:underline; cursor:pointer; border:none; }
+    table { width:100%; border-collapse:collapse; margin-top:1em; }
+    th, td { padding:0.65em; border-bottom:1px solid #e7e7e7; vertical-align:top; }
+    th { background:#013963; color:#fff; position:sticky; top:0; z-index:1; }
+    tr:hover:not(.detail-row) { background:#f1f7ff; }
+    .badge { padding:2px 8px; border-radius:12px; font-size:0.9em; color:#fff; }
+    .pending { background:#ffaa55; }
+    .inprogress { background:#56c6ff; }
+    .completed { background:#57ce90; }
+    .onhold { background:#ccc016; }
+    .detail-row { background:#f1f5fc !important; }
+    .detail-cell { padding:1.2em 2em; font-size:1.08em; color:#222; }
+    .sr-label { color:#245; font-weight: bold; }
+    .commentbox { margin-top:1em; background:#fdfad7; padding:0.75em 1em; border-radius:6px; }
+    .commentlog { font-size:0.97em; margin-top:0.6em; }
+    .internal { background:#e3f7e3; padding:4px 7px; border-radius:4px; font-size:0.98em; }
+    .extern { background:#eaf6ff; padding:4px 7px; border-radius:4px; font-size:0.98em; }
+    .attachment { margin-left:0.8em; font-size:0.9em; }
+    .filter-bar { margin-bottom:1em; display:flex; flex-wrap:wrap; gap:0.7em; }
+    .filter-bar > * { margin:0; }
+    .dash { font-size:1em; margin:1em 0 2em; display:flex; gap:2.4em; }
+    .dashbox { background:#f5f6fb; padding:1em 1.5em; border-radius:5px; box-shadow:0 2px 8px #efefef; font-size:1.1em; }
+    .assigned { font-size:0.93em; color:#014b70; }
+    .csv-export { margin-left:1.5em; font-size:0.97em; }
+    @media (max-width: 700px) {
+      .container { padding:0.5em; }
+      th, td { font-size:0.95em; white-space:normal; }
+      .split-row { grid-template-columns:1fr; }
+    }
+    footer { text-align:center; color:#999; padding:1em; margin-top:2em; }
+    /* Login Modal Styles */
+    #login-modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    #login-box {
+      background: #fff;
+      padding: 2em;
+      border-radius: 8px;
+      box-shadow: 0 0 16px rgba(0,0,0,0.3);
+      max-width: 300px;
+      width: 90%;
+      text-align: center;
+    }
+    #login-box h2 { margin-top: 0; color: #013963; }
+    #login-error { color: red; margin-bottom: 1em; display: none; }
+  </style>
+</head>
+<body>
+  <!-- Login Modal -->
+  <div id="login-modal">
+    <div id="login-box">
+      <h2>Login</h2>
+      <div id="login-error">Invalid username or password.</div>
+      <form id="login-form">
+        <label for="login-username">Username</label>
+        <input type="text" id="login-username" required>
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" required>
+        <button type="submit">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <header>
+    <h1>Work Request Portal</h1>
+    <div class="role-switch">
+      <label for="roleSelect" style="font-weight:normal;">View as: </label>
+      <select id="roleSelect">
+        <option value="staff">Staff</option>
+        <option value="sys">Systems Team</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+  </header>
+  <div class="container">
+    <div class="dash" id="dashboard"></div>
+
+    <div id="staffFormSection">
+      <h2>Submit New Request</h2>
+      <form id="requestForm">
+        <div class="split-row">
+          <div>
+            <label for="reqRequester">Your Name</label>
+            <input type="text" id="reqRequester" required>
+          </div>
+          <div>
+            <label for="reqCategory">Category</label>
+            <select id="reqCategory">
+              <option>General</option>
+              <option>Payroll</option>
+              <option>Benefits</option>
+              <option>Recruiting</option>
+              <option>Onboarding</option>
+              <option>Training/Learning</option>
+              <option>System Access</option>
+              <option>Reporting</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <label for="reqTitle">Title</label>
+        <input type="text" id="reqTitle" required>
+        <label for="reqDesc">Description</label>
+        <textarea id="reqDesc" rows="2" required></textarea>
+        <div class="split-row">
+          <div>
+            <label for="reqPriority">Priority</label>
+            <select id="reqPriority">
+              <option>Medium</option>
+              <option>Low</option>
+              <option>High</option>
+              <option>Critical</option>
+            </select>
+          </div>
+          <div>
+            <label for="reqAttachment">Attachment (link or filename, optional)</label>
+            <input type="text" id="reqAttachment" placeholder="Paste URL or filename">
+          </div>
+        </div>
+        <button type="submit">Submit Request</button>
+      </form>
+    </div>
+
+    <div class="filter-bar" id="filterBar"></div>
+
+    <h2>Work Requests</h2>
+    <table id="requestsTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title / Category</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th>Requester</th>
+          <th>Created</th>
+          <th>Assigned</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Requests go here -->
+      </tbody>
+    </table>
+    <div class="csv-export">
+      <button onclick="exportCSV()">Export CSV</button>
+    </div>
+  </div>
+  <footer>
+    &copy; 2025 Work Request Portal
+  </footer>
+  <script>
+    // Login functionality
+    const loginForm = document.getElementById("login-form");
+    const loginModal = document.getElementById("login-modal");
+    const loginError = document.getElementById("login-error");
+
+    loginForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const username = document.getElementById("login-username").value.trim();
+      const password = document.getElementById("login-password").value.trim();
+
+      if(username === "jason" && password === "test") {
+        localStorage.setItem("loggedIn", "true");
+        loginModal.style.display = "none";
+      } else {
+        loginError.style.display = "block";
+      }
+    });
+
+    // Check if logged in on load; if not, show login modal.
+    window.addEventListener("load", function() {
+      if(localStorage.getItem("loggedIn") !== "true") {
+        loginModal.style.display = "flex";
+      } else {
+        loginModal.style.display = "none";
+      }
+    });
+
+    // Existing Portal Code
+    let requests = JSON.parse(localStorage.getItem('requests_2') || '[]');
+    let nextId = requests.length ? Math.max(...requests.map(r => r.id)) + 1 : 1;
+    let openedDetailId = null;
+    let userRole = localStorage.getItem("portal_role") || "staff";
+    let userName = "";
+    let filterStatus = "";
+    let filterMyTickets = false;
+    let filterCategory = "";
+
+    const ROLE_OPTIONS = {
+      "staff": "Staff",
+      "sys": "Systems Team",
+      "admin": "Admin"
+    };
+
+    function $(id){ return document.getElementById(id); }
+
+    // Dashboard summary counts
+    function renderDash() {
+      let total = requests.length;
+      let pending = requests.filter(r => r.status === "Pending").length;
+      let inprogress = requests.filter(r => r.status === "In Progress").length;
+      let completed = requests.filter(r => r.status === "Completed").length;
+      let critical = requests.filter(r => r.priority === "Critical" && r.status !== "Completed").length;
+      $("dashboard").innerHTML = `
+        <div class="dashbox">Total: <b>${total}</b></div>
+        <div class="dashbox">Pending: <b>${pending}</b></div>
+        <div class="dashbox">In Progress: <b>${inprogress}</b></div>
+        <div class="dashbox">Completed: <b>${completed}</b></div>
+        <div class="dashbox" style="color:#d12a2a;">Critical: <b>${critical}</b></div>
+      `;
+    }
+
+    // Filtering controls
+    function renderFilters() {
+      let catSet = new Set();
+      requests.forEach(r => catSet.add(r.category));
+      let catOpt = [...catSet].sort().filter(Boolean).map(c =>
+        `<option${c===filterCategory?" selected":""}>${c}</option>`).join("");
+      $("filterBar").innerHTML = `
+        <label>Status:
+          <select onchange="setFilterStatus(this.value)">
+            <option value="">All</option>
+            <option${filterStatus==="Pending"?" selected":""}>Pending</option>
+            <option${filterStatus==="In Progress"?" selected":""}>In Progress</option>
+            <option${filterStatus==="Completed"?" selected":""}>Completed</option>
+            <option${filterStatus==="On Hold"?" selected":""}>On Hold</option>
+          </select>
+        </label>
+        <label>Category:
+          <select onchange="setFilterCategory(this.value)">
+            <option value="">All</option>
+            ${catOpt}
+          </select>
+        </label>
+        <label>
+          <input type="checkbox" ${filterMyTickets?"checked":""} onchange="toggleMyTickets()"> My Tickets
+        </label>
+        <label>
+          <input type="text" id="searchBox" placeholder="Search title/desc" oninput="renderRequests()">
+        </label>
+      `;
+    }
+
+    function setFilterStatus(val) { filterStatus = val; renderRequests(); }
+    function setFilterCategory(val) { filterCategory = val; renderRequests(); }
+    function toggleMyTickets() { filterMyTickets = !filterMyTickets; renderRequests(); }
+
+    function getStatusBadge(status) {
+      let s = status || "";
+      let c = {Pending:"pending", "In Progress":"inprogress", "Completed":"completed", "On Hold":"onhold"}[s] || "";
+      return `<span class="badge ${c}">${s}</span>`;
+    }
+    function getAttachment(a) {
+      if (!a) return "";
+      if(a.match(/^https?:\/\/|^ftp:\/\//i)) {
+        return `<a href="${a}" class="attachment" target="_blank">Attachment</a>`;
+      }
+      return `<span class="attachment">${a}</span>`;
+    }
+    function getAssignee(req) {
+      if(req.assignedTo) return `<span class="assigned">👤 ${req.assignedTo}</span>`;
+      else if(userRole === "sys" || userRole === "admin")
+        return `<button onclick="assignTicket(${req.id});event.stopPropagation();">Pick up</button>`;
+      return "";
+    }
+
+    function formatDT(dt) {
+      if (!dt) return "";
+      const d = new Date(dt);
+      return d.toLocaleString();
+    }
+
+    function matchesSearch(req) {
+      let q = $("searchBox")?.value.trim().toLowerCase();
+      if (!q) return true;
+      return (req.title + " " + req.description + " " + req.requester).toLowerCase().indexOf(q) !== -1;
+    }
+
+    function renderRequests() {
+      renderDash();
+      renderFilters();
+      const tbody = $("requestsTable").querySelector("tbody");
+      tbody.innerHTML = '';
+      let show = requests.filter(r =>
+        (!filterStatus || r.status === filterStatus)
+        && (!filterCategory || r.category === filterCategory)
+        && (!filterMyTickets || r.requester === userName || r.assignedTo === userName)
+        && matchesSearch(r)
+      );
+      if(show.length === 0){
+        tbody.innerHTML = `<tr><td style="text-align:center;color:#888;" colspan="7">No tickets found.</td></tr>`;
+      }
+      show.sort((a, b) => b.id - a.id).forEach(req => {
+        tbody.innerHTML += `
+        <tr style="cursor:pointer;" onclick="toggleDetail(${req.id})">
+          <td>${req.id}</td>
+          <td><b>${req.title}</b><br><span style="font-size:0.94em;color:#555">${req.category||""}</span></td>
+          <td>${getStatusBadge(req.status)}</td>
+          <td>${req.priority}</td>
+          <td>${req.requester}</td>
+          <td>${formatDT(req.createdAt)}</td>
+          <td>${getAssignee(req)}</td>
+        </tr>
+        ${openedDetailId === req.id ? renderDetailRow(req) : ''}
+        `;
+      });
+    }
+
+    function renderDetailRow(req) {
+      return `
+        <tr class="detail-row">
+          <td class="detail-cell" colspan="7">
+            <div><span class="sr-label">Description:</span><br>${req.description||""}</div>
+            <div><span class="sr-label">Attachment:</span> ${getAttachment(req.attachment)||'None'}</div>
+            <div><span class="sr-label">Priority:</span> ${req.priority}  <span class="sr-label" style="margin-left:1.5em;">Status:</span> ${getStatusBadge(req.status)}</div>
+            <div><span class="sr-label">Category:</span> ${req.category||""} <span class="sr-label" style="margin-left:2em;">Requester:</span> ${req.requester||""}</div>
+            <div><span class="sr-label">Created:</span> ${formatDT(req.createdAt)}</div>
+            <div><span class="sr-label">Assigned To:</span> ${req.assignedTo||"Unassigned"}</div>
+            <div style="margin:1.2em 0 0.5em;">
+              ${ getDetailActions(req) }
+            </div>
+            ${ renderEditForm(req) }
+            <div class="commentbox">
+              <div><b>Internal Comments</b> <span style="color:#888;font-size:0.96em">(Only visible to Systems Team/Admin)</span></div>
+              ${renderCommentForm(req)}
+              ${renderCommentLog(req)}
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    // Edit/Update functionality
+    function renderEditForm(req) {
+      if(userRole === "staff" && req.requester !== userName) return '';
+      let showEdit = window._editingId === req.id;
+      if(!showEdit) return `<button class="fake-link" onclick="startEdit(${req.id});event.stopPropagation();">Edit Request</button>`;
+      return `
+        <form onsubmit="saveEdit(event,${req.id})" style="margin-top:1em;padding:0.7em;background:#f6fafd;">
+          <label>Title <input type="text" id="editTitle" value="${req.title.replace(/"/g, "&quot;")}" required></label>
+          <label>Description <textarea id="editDesc" rows="2" required>${req.description.replace(/</g, "&lt;")}</textarea></label>
+          <label>Category <select id="editCat">${categoryOpts(req.category)}</select></label>
+          <label>Priority <select id="editPrio">${priorityOpts(req.priority)}</select></label>
+          <label>Attachment <input type="text" id="editAtt" value="${req.attachment ? req.attachment.replace(/"/g, "&quot;") : ''}"></label>
+          <button type="submit">Save</button>
+          <button type="button" onclick="cancelEdit()">Cancel</button>
+        </form>
+      `;
+    }
+    function startEdit(id) { window._editingId = id; renderRequests(); }
+    function cancelEdit() { window._editingId = null; renderRequests(); }
+    function saveEdit(e, id) {
+      e.preventDefault();
+      let r = requests.find(r => r.id === id);
+      if(!r) return;
+      r.title = $("editTitle").value;
+      r.description = $("editDesc").value;
+      r.category = $("editCat").value;
+      r.priority = $("editPrio").value;
+      r.attachment = $("editAtt").value;
+      saveAll();
+      window._editingId = null;
+      renderRequests();
+    }
+    function categoryOpts(sel) {
+      let o = ["General", "Payroll", "Benefits", "Recruiting", "Onboarding", "Training/Learning", "System Access", "Reporting", "Other"];
+      return o.map(v => `<option${v === sel ? " selected" : ""}>${v}</option>`).join("");
+    }
+    function priorityOpts(sel) {
+      let o = ["Medium", "Low", "High", "Critical"];
+      return o.map(v => `<option${v === sel ? " selected" : ""}>${v}</option>`).join("");
+    }
+
+    // --- Updated Comments Section ---
+    // The comment form now accepts an optional attachment link.
+    function renderCommentForm(req) {
+      if(userRole === "sys" || userRole === "admin"){
+        return `<form style="margin-top:0.5em;" onsubmit="addComment(event,${req.id})">
+          <textarea id="commentTxt${req.id}" required maxlength="300" placeholder="Add an internal comment"></textarea>
+          <input type="text" id="commentAtt${req.id}" placeholder="Optional: Paste attachment URL">
+          <button type="submit">Save Comment</button>
+        </form>`;
+      }
+      return '';
+    }
+    // When saving a comment, capture both the text and the attachment.
+    function addComment(e, id) {
+      e.preventDefault();
+      let text = document.getElementById(`commentTxt${id}`).value;
+      let attachment = document.getElementById(`commentAtt${id}`).value;
+      let r = requests.find(r => r.id === id);
+      r.comments = r.comments || [];
+      r.comments.push({
+        by: userName || "Systems Team",
+        at: new Date().toISOString(),
+        text: text,
+        attachment: attachment.trim() || ""
+      });
+      saveAll();
+      renderRequests();
+    }
+    // Render the comment log to display both text and an optional attachment link.
+    function renderCommentLog(req) {
+      if(!req.comments || req.comments.length === 0) return `<span style="color:#888;">No internal comments.</span>`;
+      return `<div class="commentlog">` + req.comments.map(c =>
+        `<div style="margin:0.1em 0 0.4em;">
+          <span class="internal">${c.by || "SysTeam"}</span> 
+          <span style="color:#999;">${formatDT(c.at)}</span><br>
+          ${c.text.replace(/</g, "&lt;")}
+          ${c.attachment ? `<div>${getAttachment(c.attachment)}</div>` : ""}
+        </div>`
+      ).join("") + `</div>`;
+    }
+
+    // Ticket assignment and actions
+    function assignTicket(id) {
+      let r = requests.find(r => r.id === id);
+      if(!r) return;
+      r.assignedTo = userName;
+      r.status = "In Progress";
+      saveAll();
+      renderRequests();
+    }
+
+    function getDetailActions(req) {
+      let arr = [];
+      if((userRole === "sys" || userRole === "admin") && req.status !== "Completed")
+        arr.push(`<button onclick="setStatus(${req.id},'Completed');event.stopPropagation();">Complete</button>`);
+      if((userRole === "sys" || userRole === "admin") && req.status !== "On Hold")
+        arr.push(`<button onclick="setStatus(${req.id},'On Hold');event.stopPropagation();">Set On Hold</button>`);
+      if((userRole === "sys" || userRole === "admin") && req.status !== "Pending")
+        arr.push(`<button onclick="setStatus(${req.id},'Pending');event.stopPropagation();">Mark Pending</button>`);
+      if((userRole === "sys" || userRole === "admin") && req.status !== "In Progress")
+        arr.push(`<button onclick="setStatus(${req.id},'In Progress');event.stopPropagation();">Mark In Progress</button>`);
+      if(userRole === "admin")
+        arr.push(`<button onclick="deleteReq(${req.id});event.stopPropagation();" style="background:#c0392b;">Delete</button>`);
+      return arr.join(" ");
+    }
+    function setStatus(id, status) {
+      let r = requests.find(r => r.id === id);
+      if (r) { r.status = status; saveAll(); renderRequests(); }
+    }
+    function deleteReq(id) {
+      if(confirm('Delete this request?')){
+        requests = requests.filter(r => r.id !== id);
+        saveAll();
+        openedDetailId = null;
+        renderRequests();
+      }
+    }
+    function toggleDetail(id) {
+      openedDetailId = (openedDetailId === id ? null : id);
+      renderRequests();
+    }
+    window.toggleDetail = toggleDetail;
+    window.setStatus = setStatus;
+    window.deleteReq = deleteReq;
+    window.assignTicket = assignTicket;
+
+    // Form submission for new requests
+    $("requestForm").onsubmit = function(e) {
+      e.preventDefault();
+      let requester = $("reqRequester").value;
+      let title = $("reqTitle").value;
+      let desc = $("reqDesc").value;
+      let prio = $("reqPriority").value;
+      let cat = $("reqCategory").value;
+      let att = $("reqAttachment").value;
+      let req = {
+        id: nextId++,
+        title,
+        description: desc,
+        status: 'Pending',
+        priority: prio,
+        requester,
+        category: cat,
+        attachment: att,
+        createdAt: new Date().toISOString(),
+        assignedTo: "",
+        comments: []
+      }
+      requests.push(req);
+      saveAll();
+      openedDetailId = req.id;
+      renderRequests();
+      this.reset();
+    };
+
+    function saveAll() {
+      localStorage.setItem('requests_2', JSON.stringify(requests));
+    }
+
+    // Role switch
+    function applyRole(role) {
+      userRole = role;
+      localStorage.setItem("portal_role", role);
+      if(role === "staff"){
+        $("staffFormSection").style.display = "";
+      } else {
+        $("staffFormSection").style.display = "none";
+      }
+      renderRequests();
+    }
+    $("roleSelect").value = userRole;
+    $("roleSelect").onchange = function() {
+      applyRole(this.value);
+    }
+    applyRole(userRole);
+
+    // Prompt for staff name on first entry
+    function getUserName(){
+      let name = localStorage.getItem("portal_userName") || "";
+      while(!name || name.length < 1){
+        name = prompt("Please enter your name (for submitting and updating requests):") || "";
+      }
+      localStorage.setItem("portal_userName", name);
+      return name;
+    }
+    userName = localStorage.getItem("portal_userName") || "";
+    if(!userName) userName = getUserName();
+
+    // For 'My Tickets' filter, allow to change userName
+    window.setUserName = function(){
+      let newName = prompt("Enter your name:");
+      if(newName){
+        userName = newName;
+        localStorage.setItem("portal_userName", userName);
+        renderRequests();
+      }
+    }
+
+    // CSV Export
+    window.exportCSV = function(){
+      let fields = ["id","title","description","status","priority","requester","createdAt","assignedTo","category","attachment"];
+      let csv = [fields.map(JSON.stringify).join(",")];
+      requests.forEach(r => {
+        let row = fields.map(f => {
+          let val = r[f] || "";
+          val = typeof val === "string" ? val.replace(/"/g,'""').replace(/\n/g," ") : val;
+          return `"${val}"`;
+        }).join(",");
+        csv.push(row);
+      });
+      let blob = new Blob([csv.join("\n")], {type:"text/csv"});
+      let a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = 'work_requests.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+
+    renderRequests();
+  </script>
+</body>
+</html>
